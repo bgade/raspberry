@@ -937,7 +937,7 @@ static std::string FormatException(std::exception* pex, const char* pszThread)
     char pszModule[MAX_PATH] = "";
     GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
 #else
-    const char* pszModule = "Coino";
+    const char* pszModule = "Raspberry";
 #endif
     if (pex)
         return strprintf(
@@ -979,7 +979,7 @@ boost::filesystem::path GetDefaultDataDir()
     // Unix: ~/.Coino
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "Coino";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Raspberry";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -991,10 +991,10 @@ boost::filesystem::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     fs::create_directory(pathRet);
-    return pathRet / "Coino";
+    return pathRet / "Raspberry";
 #else
     // Unix
-    return pathRet / ".Coino";
+    return pathRet / ".Raspberry";
 #endif
 #endif
 }
@@ -1036,7 +1036,7 @@ const boost::filesystem::path &GetDataDir(bool fNetSpecific)
 
 boost::filesystem::path GetConfigFile()
 {
-    boost::filesystem::path pathConfigFile(GetArg("-conf", "Coino.conf"));
+    boost::filesystem::path pathConfigFile(GetArg("-conf", "Raspberry.conf"));
     if (!pathConfigFile.is_complete()) pathConfigFile = GetDataDir(false) / pathConfigFile;
     return pathConfigFile;
 }
@@ -1067,7 +1067,7 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 
 boost::filesystem::path GetPidFile()
 {
-    boost::filesystem::path pathPidFile(GetArg("-pid", "Coinod.pid"));
+    boost::filesystem::path pathPidFile(GetArg("-pid", "Raspberry.pid"));
     if (!pathPidFile.is_complete()) pathPidFile = GetDataDir() / pathPidFile;
     return pathPidFile;
 }

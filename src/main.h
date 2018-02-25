@@ -825,6 +825,7 @@ public:
     uint256 hashMerkleRoot;
     unsigned int nTime;
     unsigned int nBits;
+    uint32_t pSerial;
     unsigned int nNonce;
 
     // network and disk
@@ -850,6 +851,7 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
+        READWRITE(pSerial);
         READWRITE(nNonce);
 
         // ConnectBlock depends on vtx being last so it can calculate offset
@@ -862,7 +864,8 @@ public:
     void SetNull()
     {
         nVersion = CBlock::CURRENT_VERSION;
-        hashPrevBlock = 0;
+        pSerial = 0;
+	hashPrevBlock = 0;
         hashMerkleRoot = 0;
         nTime = 0;
         nBits = 0;
@@ -1003,10 +1006,11 @@ public:
 
     void print() const
     {
-        printf("CBlock(hash=%s, PoW=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%d)\n",
+        printf("CBlock(hash=%s, PoW=%s, ver=%d, pSerial=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%d)\n",
             GetHash().ToString().substr(0,20).c_str(),
             GetPoWHash().ToString().substr(0,20).c_str(),
             nVersion,
+            pSerial,
             hashPrevBlock.ToString().substr(0,20).c_str(),
             hashMerkleRoot.ToString().substr(0,10).c_str(),
             nTime, nBits, nNonce,
@@ -1063,6 +1067,7 @@ public:
     uint256 hashMerkleRoot;
     unsigned int nTime;
     unsigned int nBits;
+    int npSerial;
     unsigned int nNonce;
 
 
@@ -1077,6 +1082,7 @@ public:
         bnChainWork = 0;
 
         nVersion       = 0;
+	npSerial       = 0;
         hashMerkleRoot = 0;
         nTime          = 0;
         nBits          = 0;
@@ -1094,9 +1100,10 @@ public:
         bnChainWork = 0;
 
         nVersion       = block.nVersion;
-        hashMerkleRoot = block.hashMerkleRoot;
+	hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
         nBits          = block.nBits;
+        npSerial       = block.pSerial;
         nNonce         = block.nNonce;
     }
 
@@ -1109,6 +1116,7 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
         block.nBits          = nBits;
+	block.pSerial 	     = npSerial;
         block.nNonce         = nNonce;
         return block;
     }
@@ -1211,7 +1219,6 @@ public:
     (
         if (!(nType & SER_GETHASH))
             READWRITE(nVersion);
-
         READWRITE(hashNext);
         READWRITE(nFile);
         READWRITE(nBlockPos);
@@ -1223,6 +1230,7 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
+	READWRITE(npSerial);
         READWRITE(nNonce);
     )
 
@@ -1234,6 +1242,7 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.nTime           = nTime;
         block.nBits           = nBits;
+	block.pSerial	      = npSerial;
         block.nNonce          = nNonce;
         return block.GetHash();
     }
@@ -1408,6 +1417,7 @@ class CUnsignedAlert
 {
 public:
     int nVersion;
+    int npSerial;
     int64 nRelayUntil;      // when newer nodes stop relaying to newer nodes
     int64 nExpiration;
     int nID;

@@ -12,6 +12,12 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <ctype.h>
+#include <inttypes.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 using namespace std;
 using namespace boost;
@@ -19,6 +25,8 @@ using namespace boost;
 //
 // Global state
 //
+
+
 
 CCriticalSection cs_setpwalletRegistered;
 set<CWallet*> setpwalletRegistered;
@@ -29,9 +37,9 @@ CTxMemPool mempool;
 unsigned int nTransactionsUpdated = 0;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
-uint256 hashGenesisBlock("0xf1b4cdf03c86099a0758f1c018d1a10bf05afab436c92b93b42bb88970de9821");
+uint256 hashGenesisBlock("0x1a7f8a934744846303f4603b999bbc454c14879d7b107eae9a79a6c13447e912");
 static CBigNum bnProofOfWorkLimit(~uint256(0) >> 20);
-static CBigNum bnStartDiffic(~uint256(0) >> 29);
+static CBigNum bnStartDiffic(~uint256(0) >> 8);
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
 CBigNum bnBestChainWork = 0;
@@ -829,22 +837,31 @@ uint256 static GetOrphanRoot(const CBlock* pblock)
 
 int64 static GetBlockValue(int nHeight, int64 nFees)
 {
-	int64 nSubsidy = 0;
-	
-	if (nHeight < 2794284)
+	int64 nSubsidy = 1;
+
+	if (nHeight < 600000)
+		nSubsidy = 4 * COIN;
+
+	if (nHeight < 450000)
+		nSubsidy = 9 * COIN;
+
+	if (nHeight < 300000)
+		nSubsidy = 17 * COIN;
+
+	if (nHeight < 150000)
 		nSubsidy = 35 * COIN;
-		
+
 	if (nHeight < 140)
 		nSubsidy = 1 * COIN;
-	
+
 	if (nHeight == 1)
-		nSubsidy = 2200000 * COIN;
+		nSubsidy = 50000 * COIN;
 
     return nSubsidy + nFees;
 }
 
 static const int64 nTargetTimespan =  25 * 144; // 1 hr
-static const int64 nTargetSpacing = 25; // 25 seconds
+static const int64 nTargetSpacing = 120; // 25 seconds
 static const int64 nInterval = nTargetTimespan / nTargetSpacing;
 
 //
@@ -897,7 +914,7 @@ else	{ PastDifficultyAverage = ((CBigNum().SetCompact(BlockReading->nBits) - Pas
 PastDifficultyAveragePrev = PastDifficultyAverage;
 
                if (LatestBlockTime < BlockReading->GetBlockTime()) {
-                       if (BlockReading->nHeight > 269707) // HARD Fork block number
+                       if (BlockReading->nHeight > 150) // HARD Fork block number
                                LatestBlockTime = BlockReading->GetBlockTime();
                }
                PastRateActualSeconds                   = LatestBlockTime - BlockReading->GetBlockTime();
@@ -905,7 +922,7 @@ PastDifficultyAveragePrev = PastDifficultyAverage;
 PastRateTargetSeconds	= TargetBlocksSpacingSeconds * PastBlocksMass;
 PastRateAdjustmentRatio	= double(1);
 
-               if (BlockReading->nHeight > 269707) { // HARD Fork block number
+               if (BlockReading->nHeight > 150) { // HARD Fork block number
                        if (PastRateActualSeconds < 1) { PastRateActualSeconds = 1; }
                } else {
                        if (PastRateActualSeconds < 0) { PastRateActualSeconds = 0; }
@@ -945,12 +962,12 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
 {
     unsigned int nProofOfWorkLimit = bnProofOfWorkLimit.GetCompact();
 	
-if (pindexLast->nHeight+1 > 157250)
+if (pindexLast->nHeight+1 > 150)
 {
-	static const int64	BlocksTargetSpacing	= 25 * 1;
+	static const int64	BlocksTargetSpacing	= 120 * 1;
 	unsigned int	TimeDaySeconds	= 60 * 60 * 24;
 	int64	PastSecondsMin	= TimeDaySeconds * 0.0417;
-        if (pindexLast->nHeight > 269707) PastSecondsMin = TimeDaySeconds/6; // 4 hours
+        if (pindexLast->nHeight > 150) PastSecondsMin = TimeDaySeconds/6; // 4 hours
 	int64	PastSecondsMax	= TimeDaySeconds * 1.17;
 	uint64	PastBlocksMin	= PastSecondsMin / BlocksTargetSpacing;
 	uint64	PastBlocksMax	= PastSecondsMax / BlocksTargetSpacing;	
@@ -958,10 +975,12 @@ if (pindexLast->nHeight+1 > 157250)
 	return KimotoGravityWell(pindexLast, pblock, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax);
 }
 
+
     // Genesis block
     if (pindexLast == NULL)
-        return nProofOfWorkLimit;
-	
+//        return nProofOfWorkLimit;
+		return bnStartDiffic.GetCompact();
+
 	if (pindexLast->nHeight+1 == 140)
 		return bnStartDiffic.GetCompact();
 
@@ -1006,7 +1025,7 @@ if (pindexLast->nHeight+1 > 157250)
 
          int64 nActualTimespanMax = ((nTargetTimespan*75)/55);
          int64 nActualTimespanMin = ((nTargetTimespan*55)/75);
-        
+
     if (nActualTimespan < nActualTimespanMin)
         nActualTimespan = nActualTimespanMin;
     if (nActualTimespan > nActualTimespanMax)
@@ -1858,6 +1877,11 @@ bool CBlock::CheckBlock() const
     if (hashMerkleRoot != BuildMerkleTree())
         return DoS(100, error("CheckBlock() : hashMerkleRoot mismatch"));
 
+    // Check serial
+    if (pSerial == 0)
+	printf ("Serial mismatch error.");
+        return DoS(100, error("CheckBlock() : pSerial Mismatch"));
+
     return true;
 }
 
@@ -2101,9 +2125,10 @@ bool LoadBlockIndex(bool fAllowNew)
         block.hashPrevBlock = 0;
         block.hashMerkleRoot = block.BuildMerkleTree();
         block.nVersion = 1;
-        block.nTime    = 1382342087;
+	block.pSerial = 1234567890;
+        block.nTime    = 1519530621;
         block.nBits    = bnProofOfWorkLimit.GetCompact();
-        block.nNonce   = 1120954;
+        block.nNonce   = 812712;
 
         if (fTestNet)
         {
@@ -3385,6 +3410,45 @@ void SHA256Transform(void* pstate, void* pinput, const void* pinit)
         ((uint32_t*)pstate)[i] = ctx.h[i];
 }
 
+
+static char *
+trimWhiteSpace(
+    char *string)
+{
+    if (string == NULL)
+    {
+        return NULL;
+    }
+
+    while (isspace(*string))
+    {
+        string++;
+    }
+
+    if (*string == '\0')
+    {
+        return string;
+    }
+
+    char *end = string;
+
+    while (*end)
+    {
+        ++end;
+    }
+    --end;
+
+    while ((end > string) && isspace(*end))
+    {
+        end--;
+    }
+
+    *(end + 1) = 0;
+    return string;
+}
+
+
+
 //
 // ScanHash scans nonces looking for a hash with at least some zero bits.
 // It operates on big endian data.  Caller does the byte reversing.
@@ -3608,12 +3672,46 @@ CBlock* CreateNewBlock(CReserveKey& reservekey)
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     pblock->hashMerkleRoot = pblock->BuildMerkleTree();
+
+    uint32_t serial = 0;
+
+    FILE *fp = fopen("/proc/cpuinfo", "r");
+
+    if (fp == NULL)
+    {
+        perror("/proc/cpuinfo");
+        exit(EXIT_FAILURE);
+    }
+
+    char entry[80];
+
+    while (fgets(entry, sizeof(entry), fp) != NULL)
+    {
+        char* saveptr = NULL;
+
+        char *key = trimWhiteSpace(strtok_r(entry, ":", &saveptr));
+        char *value = trimWhiteSpace(strtok_r(NULL, ":", &saveptr));
+
+        if (strcasecmp("Serial", key) == 0)
+        {
+            serial = strtoul(value, NULL, 16);
+        }
+    }
+
+    fclose(fp);
+
+
+
+
+    pblock->pSerial = serial;
     pblock->UpdateTime(pindexPrev);
     pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock.get());
     pblock->nNonce         = 0;
 
     return pblock.release();
 }
+
+
 
 
 void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce)
@@ -3643,6 +3741,7 @@ void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash
         struct unnamed2
         {
             int nVersion;
+	    int npSerial;
             uint256 hashPrevBlock;
             uint256 hashMerkleRoot;
             unsigned int nTime;
@@ -3658,6 +3757,35 @@ void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash
     memset(&tmp, 0, sizeof(tmp));
 
     tmp.block.nVersion       = pblock->nVersion;
+    uint32_t serial = 0;
+
+    FILE *fp = fopen("/proc/cpuinfo", "r");
+
+    if (fp == NULL)
+    {
+        perror("/proc/cpuinfo");
+        exit(EXIT_FAILURE);
+    }
+
+    char entry[80];
+
+    while (fgets(entry, sizeof(entry), fp) != NULL)
+    {
+        char* saveptr = NULL;
+
+        char *key = trimWhiteSpace(strtok_r(entry, ":", &saveptr));
+        char *value = trimWhiteSpace(strtok_r(NULL, ":", &saveptr));
+
+        if (strcasecmp("Serial", key) == 0)
+        {
+            serial = strtoul(value, NULL, 16);
+        }
+    }
+
+    fclose(fp);
+
+
+    tmp.block.npSerial	     = serial;
     tmp.block.hashPrevBlock  = pblock->hashPrevBlock;
     tmp.block.hashMerkleRoot = pblock->hashMerkleRoot;
     tmp.block.nTime          = pblock->nTime;
@@ -3738,14 +3866,14 @@ void static BitcoinMiner(CWallet *pwallet)
     {
         if (fShutdown)
             return;
-        while (vNodes.empty() || IsInitialBlockDownload())
-        {
-            Sleep(1000);
-            if (fShutdown)
-                return;
-            if (!fGenerateBitcoins)
-                return;
-        }
+//        while (vNodes.empty() || IsInitialBlockDownload())
+//        {
+//            Sleep(1000);
+//            if (fShutdown)
+//                return;
+//            if (!fGenerateBitcoins)
+//               return;
+//        }
 
 
         //
@@ -3844,8 +3972,8 @@ void static BitcoinMiner(CWallet *pwallet)
                 return;
             if (fLimitProcessors && vnThreadsRunning[THREAD_MINER] > nLimitProcessors)
                 return;
-            if (vNodes.empty())
-                break;
+//            if (vNodes.empty())
+//                break;
             if (pblock->nNonce >= 0xffff0000)
                 break;
             if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 60)

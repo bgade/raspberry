@@ -269,7 +269,7 @@ void scrypt_1024_1_1_256_sp(const char *input, char *output, char *scratchpad)
 
 	V = (uint32_t *)(((uintptr_t)(scratchpad) + 63) & ~ (uintptr_t)(63));
 	
-	PBKDF2_SHA256((const uint8_t *)input, 80, (const uint8_t *)input, 80, 1, B, 128);
+	PBKDF2_SHA256((const uint8_t *)input, 88, (const uint8_t *)input, 88, 1, B, 128);
 
 	for (k = 0; k < 32; k++)
 		X[k] = le32dec(&B[4 * k]);

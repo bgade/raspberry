@@ -1,8 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
 // Copyright (c) 2011-2012 Litecoin Developers
-// Copyright (c) 2013 Coino Developers
-// Copyright (c) 2014 Coino Community Team
+// Copyright (c) 2014 Raspberry Community Team
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include "db.h"
@@ -17,6 +16,13 @@
 #include <boost/filesystem/convenience.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <ctype.h>
+#include <inttypes.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 
 #ifndef WIN32
 #include <signal.h>
@@ -27,6 +33,49 @@ using namespace boost;
 
 CWallet* pwalletMain;
 CClientUIInterface uiInterface;
+
+
+//-----------------------------------------------------------------------
+//
+// Remove leading and trailing whitespace from a string.
+
+static char *
+trimWhiteSpace(
+    char *string)
+{
+    if (string == NULL)
+    {
+        return NULL;
+    }
+
+    while (isspace(*string))
+    {
+        string++;
+    }
+
+    if (*string == '\0')
+    {
+        return string;
+    }
+
+    char *end = string;
+
+    while (*end)
+    {
+        ++end;
+    }
+    --end;
+
+    while ((end > string) && isspace(*end))
+    {
+        end--;
+    }
+
+    *(end + 1) = 0;
+    return string;
+}
+
+
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -82,7 +131,7 @@ void Shutdown(void* parg)
         delete pwalletMain;
         CreateThread(ExitTimeout, NULL);
         Sleep(50);
-        printf("Coino exited\n\n");
+        printf("Raspberry exited\n\n");
         fExit = true;
 #ifndef QT_GUI
         // ensure non UI client get's exited here, but let Bitcoin-Qt reach return 0; in bitcoin.cpp
@@ -125,7 +174,7 @@ bool AppInit(int argc, char* argv[])
         //
         // Parameters
         //
-        // If Qt is used, parameters/Coino.conf are parsed in qt/bitcoin.cpp's main()
+        // If Qt is used, parameters/Raspberry.conf are parsed in qt/bitcoin.cpp's main()
         ParseParameters(argc, argv);
         if (!boost::filesystem::is_directory(GetDataDir(false)))
         {
@@ -136,13 +185,13 @@ bool AppInit(int argc, char* argv[])
 
         if (mapArgs.count("-?") || mapArgs.count("--help"))
         {
-            // First part of help message is specific to Coinod / RPC client
-            std::string strUsage = _("Coino version") + " " + FormatFullVersion() + "\n\n" +
+            // First part of help message is specific to Raspberryd / RPC client
+            std::string strUsage = _("Raspberry version") + " " + FormatFullVersion() + "\n\n" +
                 _("Usage:") + "\n" +
-                  "  Coinod [options]                     " + "\n" +
-                  "  Coinod [options] <command> [params]  " + _("Send command to -server or Coinod") + "\n" +
-                  "  Coinod [options] help                " + _("List commands") + "\n" +
-                  "  Coinod [options] help <command>      " + _("Get help for a command") + "\n";
+                  "  Raspberryd [options]                     " + "\n" +
+                  "  Raspberryd [options] <command> [params]  " + _("Send command to -server or Raspberryd") + "\n" +
+                  "  Raspberryd [options] help                " + _("List commands") + "\n" +
+                  "  Raspberryd [options] help <command>      " + _("Get help for a command") + "\n";
 
             strUsage += "\n" + HelpMessage();
 
@@ -152,7 +201,7 @@ bool AppInit(int argc, char* argv[])
 
         // Command-line RPC
         for (int i = 1; i < argc; i++)
-            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "Coino:"))
+            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "Raspberry:"))
                 fCommandLine = true;
 
         if (fCommandLine)
@@ -178,8 +227,37 @@ int main(int argc, char* argv[])
 {
     bool fRet = false;
 
-    // Connect Coinod signal handlers
+    // Connect Raspberryd signal handlers
     noui_connect();
+
+    uint32_t serial = 0;
+
+    FILE *fp = fopen("/proc/cpuinfo", "r");
+
+    if (fp == NULL)
+    {
+        perror("/proc/cpuinfo");
+        exit(EXIT_FAILURE);
+    }
+
+    char entry[80];
+
+    while (fgets(entry, sizeof(entry), fp) != NULL)
+    {
+        char* saveptr = NULL;
+
+        char *key = trimWhiteSpace(strtok_r(entry, ":", &saveptr));
+        char *value = trimWhiteSpace(strtok_r(NULL, ":", &saveptr));
+
+        if (strcasecmp("Serial", key) == 0)
+        {
+            serial = strtoul(value, NULL, 16);
+        }
+    }
+    fclose(fp);
+
+        printf("serial: %u \n", serial);
+
 
     fRet = AppInit(argc, argv);
 
@@ -192,13 +270,13 @@ int main(int argc, char* argv[])
 
 bool static InitError(const std::string &str)
 {
-    uiInterface.ThreadSafeMessageBox(str, _("Coino"), CClientUIInterface::OK | CClientUIInterface::MODAL);
+    uiInterface.ThreadSafeMessageBox(str, _("Raspberry"), CClientUIInterface::OK | CClientUIInterface::MODAL);
     return false;
 }
 
 bool static InitWarning(const std::string &str)
 {
-    uiInterface.ThreadSafeMessageBox(str, _("Coino"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
+    uiInterface.ThreadSafeMessageBox(str, _("Raspberry"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
     return true;
 }
 
@@ -219,8 +297,8 @@ bool static Bind(const CService &addr, bool fError = true) {
 std::string HelpMessage()
 {
     string strUsage = _("Options:") + "\n" +
-        "  -conf=<file>           " + _("Specify configuration file (default: Coino.conf)") + "\n" +
-        "  -pid=<file>            " + _("Specify pid file (default: Coinod.pid)") + "\n" +
+        "  -conf=<file>           " + _("Specify configuration file (default: Raspberry.conf)") + "\n" +
+        "  -pid=<file>            " + _("Specify pid file (default: Raspberry.pid)") + "\n" +
         "  -gen                   " + _("Generate coins") + "\n" +
         "  -gen=0                 " + _("Don't generate coins") + "\n" +
         "  -datadir=<dir>         " + _("Specify data directory") + "\n" +
@@ -296,7 +374,7 @@ std::string HelpMessage()
     return strUsage;
 }
 
-/** Initialize Coino.
+/** Initialize Raspberry.
  *  @pre Parameters should be parsed and config file should be read.
  */
 bool AppInit2()
@@ -334,7 +412,7 @@ bool AppInit2()
     // ********************************************************* Step 2: parameter interactions
 
     fTestNet = GetBoolArg("-testnet");
-    // Coino: Keep irc seeding on by default for now.
+    // Raspberry: Keep irc seeding on by default for now.
 //    if (fTestNet)
 //    {
         SoftSetBoolArg("-irc", true);
@@ -427,15 +505,19 @@ bool AppInit2()
             return InitError(strprintf(_("Invalid amount for -mininput=<amount>: '%s'"), mapArgs["-mininput"].c_str()));
     }
 
+
+
+
+
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
-    // Make sure only a single Coino process is using the data directory.
+    // Make sure only a single Raspberry process is using the data directory.
     boost::filesystem::path pathLockFile = GetDataDir() / ".lock";
     FILE* file = fopen(pathLockFile.string().c_str(), "a"); // empty lock file; created if it doesn't exist.
     if (file) fclose(file);
     static boost::interprocess::file_lock lock(pathLockFile.string().c_str());
     if (!lock.try_lock())
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s.  Coino is probably already running."), GetDataDir().string().c_str()));
+        return InitError(strprintf(_("Cannot obtain a lock on data directory %s.  Raspberry is probably already running."), GetDataDir().string().c_str()));
 
 #if !defined(WIN32) && !defined(QT_GUI)
     if (fDaemon)
@@ -462,14 +544,14 @@ bool AppInit2()
     if (!fDebug)
         ShrinkDebugFile();
     printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    printf("Coino version %s (%s)\n", FormatFullVersion().c_str(), CLIENT_DATE.c_str());
+    printf("Raspberry version %s (%s)\n", FormatFullVersion().c_str(), CLIENT_DATE.c_str());
     printf("Startup time: %s\n", DateTimeStrFormat("%x %H:%M:%S", GetTime()).c_str());
     printf("Default data directory %s\n", GetDefaultDataDir().string().c_str());
     printf("Used data directory %s\n", GetDataDir().string().c_str());
     std::ostringstream strErrors;
 
     if (fDaemon)
-        fprintf(stdout, "Coino server starting\n");
+        fprintf(stdout, "Raspberry server starting\n");
 
     int64 nStart;
 
@@ -590,7 +672,7 @@ bool AppInit2()
         strErrors << _("Error loading blkindex.dat") << "\n";
 
     // as LoadBlockIndex can take several minutes, it's possible the user
-    // requested to kill Coino-qt during the last operation. If so, exit.
+    // requested to kill Raspberry-qt during the last operation. If so, exit.
     // As the program has not fully started yet, Shutdown() is possibly overkill.
     if (fRequestShutdown)
     {
@@ -641,10 +723,10 @@ bool AppInit2()
         if (nLoadWalletRet == DB_CORRUPT)
             strErrors << _("Error loading wallet.dat: Wallet corrupted") << "\n";
         else if (nLoadWalletRet == DB_TOO_NEW)
-            strErrors << _("Error loading wallet.dat: Wallet requires newer version of Coino") << "\n";
+            strErrors << _("Error loading wallet.dat: Wallet requires newer version of Raspberry") << "\n";
         else if (nLoadWalletRet == DB_NEED_REWRITE)
         {
-            strErrors << _("Wallet needed to be rewritten: restart Coino to complete") << "\n";
+            strErrors << _("Wallet needed to be rewritten: restart Raspberry to complete") << "\n";
             printf("%s", strErrors.str().c_str());
             return InitError(strErrors.str());
         }
